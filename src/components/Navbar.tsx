@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tv, Wifi, WifiOff, Car, Cast, Plus, Download, Check, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { Tv, Wifi, WifiOff, Car, Cast, Plus, Download, Check, Sparkles, SlidersHorizontal, Folder } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 
@@ -8,6 +8,7 @@ interface NavbarProps {
   onOpenAddSource: () => void;
   onOpenCarPlayGuide: () => void;
   onOpenIOSGuide: () => void;
+  onOpenMediaVault: () => void;
   workingCount: number;
   totalCount: number;
 }
@@ -17,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAddSource,
   onOpenCarPlayGuide,
   onOpenIOSGuide,
+  onOpenMediaVault,
   workingCount,
   totalCount,
 }) => {
@@ -56,6 +58,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Action Controls & Navigation */}
         <div className="flex items-center gap-2">
           
+          {/* Media Vault (iPhone Photos & Files) Button */}
+          <button
+            id="media-vault-nav-btn"
+            onClick={onOpenMediaVault}
+            className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100/80 active:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
+            title="مجلد ملفات وسائط الآيفون (صور وفيديو)"
+          >
+            <Folder className="w-3.5 h-3.5 text-blue-600 fill-blue-600/20" />
+            <span className="hidden sm:inline">ملفات IPTV IQ</span>
+            <span className="sm:hidden">ملفات</span>
+          </button>
+
           {/* Add M3U Source Button */}
           <button
             id="add-m3u-source-nav-btn"

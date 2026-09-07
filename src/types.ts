@@ -28,3 +28,16 @@ export interface NetworkState {
   effectiveType?: string;
   saveData?: boolean;
 }
+
+export interface LocalMediaItem {
+  id: string;
+  name: string;
+  type: 'video' | 'image';
+  mimeType: string;
+  size: number;
+  addedAt: number;
+  blob?: Blob;
+  url?: string;
+  thumbnail?: string;
+  duration?: number;
+}

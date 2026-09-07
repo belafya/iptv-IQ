@@ -22,10 +22,11 @@ import {
   Smartphone,
   Check,
   Airplay,
-  HelpCircle
+  HelpCircle,
+  Folder
 } from 'lucide-react';
 import Hls from 'hls.js';
-import { IPTVChannel, QualityMode } from '../types';
+import { IPTVChannel, QualityMode, LocalMediaItem } from '../types';
 import { getOptimizedHlsConfig } from '../utils/streamOptimizer';
 import { backgroundPlaybackService } from '../utils/backgroundPlayback';
 
@@ -40,6 +41,10 @@ interface LivePlayerProps {
   onChangeQualityMode: (mode: QualityMode) => void;
   isOnline: boolean;
   onOpenGuide?: () => void;
+  onOpenTVFix?: () => void;
+  onOpenMediaVault?: () => void;
+  activeLocalMedia?: LocalMediaItem | null;
+  onClearLocalMedia?: () => void;
 }
 
 export const LivePlayer: React.FC<LivePlayerProps> = ({
@@ -53,6 +58,10 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
   onChangeQualityMode,
   isOnline,
   onOpenGuide,
+  onOpenTVFix,
+  onOpenMediaVault,
+  activeLocalMedia,
+  onClearLocalMedia,
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -74,6 +83,17 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
 
   // Sync MediaSession for iOS Lock Screen, CarPlay & Control Center
   const setupMediaSession = useCallback(() => {
+    if (activeLocalMedia) {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: activeLocalMedia.name,
+          artist: 'مجلد IPTV IQ (ملفات الآيفون)',
+          album: 'تشغيل محلي بدون إنترنت',
+        });
+      }
+      return;
+    }
+
     backgroundPlaybackService.updateMediaSession(channel, {
       onPlay: () => {
         if (videoRef.current) {
@@ -89,7 +109,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       onNext: onNextChannel,
       onPrev: onPrevChannel,
     });
-  }, [channel, onNextChannel, onPrevChannel]);
+  }, [channel, onNextChannel, onPrevChannel, activeLocalMedia]);
 
   // Toggle Background Mode
   const toggleBackgroundMode = () => {
@@ -129,6 +149,22 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
+    }
+
+    // If playing a local video from iPhone Files (IPTV IQ)
+    if (activeLocalMedia) {
+      setupMediaSession();
+      const localUrl = activeLocalMedia.url || (activeLocalMedia.blob ? URL.createObjectURL(activeLocalMedia.blob) : '');
+      video.src = localUrl;
+      video.load();
+      video.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch((err) => {
+        console.warn('Local video play catch:', err);
+        setIsBuffering(false);
+      });
+      return;
     }
 
     const streamUrl = (qualityMode === 'low_data' && channel.lowResUrl) ? channel.lowResUrl : channel.url;
@@ -191,9 +227,9 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       video.src = streamUrl;
       video.load();
     }
-  }, [channel, qualityMode, setupMediaSession, onChannelError, isBackgroundMode]);
+  }, [channel, qualityMode, setupMediaSession, onChannelError, isBackgroundMode, activeLocalMedia]);
 
-  // Reload when channel or quality changes
+  // Reload when channel, quality, or activeLocalMedia changes
   useEffect(() => {
     loadStream();
     return () => {
@@ -202,7 +238,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
         hlsRef.current = null;
       }
     };
-  }, [channel, qualityMode, loadStream]);
+  }, [channel, qualityMode, loadStream, activeLocalMedia]);
 
   // AirPlay detection & events
   useEffect(() => {
@@ -297,6 +333,24 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
   return (
     <div className="w-full bg-white rounded-3xl border border-slate-200/90 shadow-lg overflow-hidden flex flex-col transition-all">
       
+      {/* Active Local Media Banner */}
+      {activeLocalMedia && (
+        <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2.5 flex items-center justify-between text-xs font-semibold">
+          <div className="flex items-center gap-2">
+            <Folder className="w-4 h-4 fill-white/20" />
+            <span>تشغيل فيديو محلي من مجلد <strong>IPTV IQ</strong>: <span className="font-bold">{activeLocalMedia.name}</span></span>
+          </div>
+          {onClearLocalMedia && (
+            <button
+              onClick={onClearLocalMedia}
+              className="px-3 py-1 rounded-xl bg-white text-blue-900 font-bold text-[11px] hover:bg-blue-50 transition cursor-pointer shadow-xs"
+            >
+              العودة للبث المباشر للقنوات
+            </button>
+          )}
+        </div>
+      )}
+
       {/* VIDEO STAGE */}
       <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group select-none">
         
@@ -332,13 +386,22 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
           </div>
         )}
 
-        {/* AirPlay Active Overlay Banner */}
+        {/* AirPlay Active Overlay Banner & Fast TV Fix Prompt */}
         {isAirPlayActive && (
-          <div className="absolute top-12 inset-x-4 z-20 flex justify-center pointer-events-none">
-            <div className="bg-emerald-600/95 backdrop-blur-md text-white text-xs font-bold px-4 py-2 rounded-2xl shadow-xl flex items-center gap-2 border border-emerald-400/40 animate-pulse pointer-events-auto">
+          <div className="absolute top-12 inset-x-4 z-20 flex flex-col items-center gap-2 pointer-events-none">
+            <div className="bg-emerald-600/95 backdrop-blur-md text-white text-xs font-bold px-4 py-1.5 rounded-2xl shadow-xl flex items-center gap-2 border border-emerald-400/40 pointer-events-auto">
               <Cast className="w-4 h-4" />
-              <span>متصل بالتلفاز عبر AirPlay • مستمر بالخلفية بدون انقطاع</span>
+              <span>متصل بالتلفاز عبر AirPlay</span>
             </div>
+            {onOpenTVFix && (
+              <button
+                onClick={onOpenTVFix}
+                className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-[11px] font-black px-3.5 py-1.5 rounded-xl shadow-lg border border-amber-300 flex items-center gap-1.5 transition pointer-events-auto cursor-pointer"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>التلفاز معلّق على «جاري التحميل»؟ اضغط هنا للحل الفوري</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -441,6 +504,19 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
               <span className="hidden sm:inline">بث للتلفاز</span>
               <span className="sm:hidden">AirPlay</span>
             </button>
+
+            {/* TV Loading Fix Button */}
+            {onOpenTVFix && (
+              <button
+                id="player-tv-fix-btn"
+                onClick={onOpenTVFix}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-500/90 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm transition active:scale-95 cursor-pointer"
+                title="حل مشكلة تأخر أو تعليق التلفاز على «جاري التحميل»"
+              >
+                <Tv className="w-3.5 h-3.5 text-slate-950" />
+                <span className="hidden sm:inline">حل بطء التلفاز</span>
+              </button>
+            )}
 
             {/* Picture in Picture */}
             <button
@@ -558,6 +634,18 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
               <span>النت الضعيف</span>
             </button>
           </div>
+
+          {/* Open Media Vault */}
+          {onOpenMediaVault && (
+            <button
+              onClick={onOpenMediaVault}
+              className="px-3 py-1.5 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              title="فتح مجلد ملفات ووسائط الآيفون (IPTV IQ)"
+            >
+              <Folder className="w-3.5 h-3.5 text-blue-600 fill-blue-600/20" />
+              <span>مجلد وسائط الآيفون</span>
+            </button>
+          )}
 
           {/* Open Guide */}
           {onOpenGuide && (
