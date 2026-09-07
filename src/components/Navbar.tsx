@@ -1,6 +1,7 @@
 import React from 'react';
-import { Tv, Wifi, WifiOff, Car, Plus, Download, Check, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { Tv, Wifi, WifiOff, Car, Cast, Plus, Download, Check, Sparkles, SlidersHorizontal } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+
 
 interface NavbarProps {
   isOnline: boolean;
@@ -72,12 +73,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             id="carplay-guide-nav-btn"
             onClick={onOpenCarPlayGuide}
             className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 active:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-            title="توصيل وتشغيل السيارة و AirPlay"
+            title="بث التلفاز وتشغيل الخلفية والسيارة"
           >
-            <Car className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden sm:inline">CarPlay & AirPlay</span>
-            <span className="sm:hidden">CarPlay</span>
+            <Cast className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">بث التلفاز والخلفية</span>
+            <span className="sm:hidden">AirPlay</span>
           </button>
+
 
           {/* PWA Install Button */}
           {isInstalled ? (

@@ -102,30 +102,36 @@ export default function App() {
     });
   }, []);
 
+  // Guarded currentChannel
+  const safeCurrentChannel: IPTVChannel = currentChannel || channels[0] || CURATED_IPTV_CHANNELS[0];
+
   // Next / Prev Channel navigation
   const activeWorkingChannels = channels.filter(
-    (c) => !onlyWorking || c.status !== 'offline'
+    (c) => c && (!onlyWorking || c.status !== 'offline')
   );
 
   const handleNextChannel = () => {
-    const idx = activeWorkingChannels.findIndex((c) => c.id === currentChannel.id);
+    if (activeWorkingChannels.length === 0) return;
+    const idx = activeWorkingChannels.findIndex((c) => c.id === safeCurrentChannel.id);
     if (idx !== -1 && idx < activeWorkingChannels.length - 1) {
       handleSelectChannel(activeWorkingChannels[idx + 1]);
-    } else if (activeWorkingChannels.length > 0) {
+    } else {
       handleSelectChannel(activeWorkingChannels[0]);
     }
   };
 
   const handlePrevChannel = () => {
-    const idx = activeWorkingChannels.findIndex((c) => c.id === currentChannel.id);
+    if (activeWorkingChannels.length === 0) return;
+    const idx = activeWorkingChannels.findIndex((c) => c.id === safeCurrentChannel.id);
     if (idx > 0) {
       handleSelectChannel(activeWorkingChannels[idx - 1]);
-    } else if (activeWorkingChannels.length > 0) {
+    } else {
       handleSelectChannel(activeWorkingChannels[activeWorkingChannels.length - 1]);
     }
   };
 
-  const workingCount = channels.filter((c) => c.status !== 'offline').length;
+  const workingCount = channels.filter((c) => c && c.status !== 'offline').length;
+
 
   return (
     <div
@@ -159,8 +165,8 @@ export default function App() {
         {/* Live TV Video Player Container */}
         <section className="w-full">
           <LivePlayer
-            channel={currentChannel}
-            isFavorite={favoriteIds.includes(currentChannel.id)}
+            channel={safeCurrentChannel}
+            isFavorite={favoriteIds.includes(safeCurrentChannel.id)}
             onToggleFavorite={handleToggleFavorite}
             onNextChannel={handleNextChannel}
             onPrevChannel={handlePrevChannel}
@@ -168,14 +174,16 @@ export default function App() {
             qualityMode={qualityMode}
             onChangeQualityMode={handleChangeQualityMode}
             isOnline={isOnline}
+            onOpenGuide={() => setIsCarPlayGuideOpen(true)}
           />
         </section>
+
 
         {/* Channels Catalog & Filters */}
         <section className="w-full">
           <ChannelList
             channels={channels}
-            currentChannelId={currentChannel.id}
+            currentChannelId={safeCurrentChannel.id}
             onSelectChannel={handleSelectChannel}
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
@@ -183,6 +191,7 @@ export default function App() {
             onToggleOnlyWorking={handleToggleOnlyWorking}
           />
         </section>
+
 
       </main>
 

@@ -18,11 +18,16 @@ import {
   Wifi,
   Radio,
   PictureInPicture2,
-  ShieldCheck
+  ShieldCheck,
+  Smartphone,
+  Check,
+  Airplay,
+  HelpCircle
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { IPTVChannel, QualityMode } from '../types';
-import { getOptimizedHlsConfig, syncCarPlayMediaSession } from '../utils/streamOptimizer';
+import { getOptimizedHlsConfig } from '../utils/streamOptimizer';
+import { backgroundPlaybackService } from '../utils/backgroundPlayback';
 
 interface LivePlayerProps {
   channel: IPTVChannel;
@@ -34,6 +39,7 @@ interface LivePlayerProps {
   qualityMode: QualityMode;
   onChangeQualityMode: (mode: QualityMode) => void;
   isOnline: boolean;
+  onOpenGuide?: () => void;
 }
 
 export const LivePlayer: React.FC<LivePlayerProps> = ({
@@ -46,21 +52,29 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
   qualityMode,
   onChangeQualityMode,
   isOnline,
+  onOpenGuide,
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isBuffering, setIsBuffering] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAirPlayActive, setIsAirPlayActive] = useState<boolean>(false);
+  const [isBackgroundMode, setIsBackgroundMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('iptv_iq_bg_mode');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
   const [aspectFit, setAspectFit] = useState<'contain' | 'cover'>('contain');
-  const [showQualityMenu, setShowQualityMenu] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Setup CarPlay MediaSession
+  // Sync MediaSession for iOS Lock Screen, CarPlay & Control Center
   const setupMediaSession = useCallback(() => {
-    syncCarPlayMediaSession(channel, {
+    backgroundPlaybackService.updateMediaSession(channel, {
       onPlay: () => {
         if (videoRef.current) {
           videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
@@ -76,6 +90,34 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       onPrev: onPrevChannel,
     });
   }, [channel, onNextChannel, onPrevChannel]);
+
+  // Toggle Background Mode
+  const toggleBackgroundMode = () => {
+    setIsBackgroundMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('iptv_iq_bg_mode', String(next));
+      } catch {}
+      if (next) {
+        backgroundPlaybackService.startBackgroundKeepAlive();
+        backgroundPlaybackService.requestWakeLock();
+      } else {
+        backgroundPlaybackService.stopBackgroundKeepAlive();
+      }
+      return next;
+    });
+  };
+
+  // Keep alive when background mode is active
+  useEffect(() => {
+    if (isBackgroundMode && isPlaying) {
+      backgroundPlaybackService.startBackgroundKeepAlive();
+      backgroundPlaybackService.requestWakeLock();
+    }
+    return () => {
+      // Clean on unmount
+    };
+  }, [isBackgroundMode, isPlaying]);
 
   // Load Stream via Native Safari HLS or Hls.js
   const loadStream = useCallback(() => {
@@ -101,12 +143,16 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       video.play().then(() => {
         setIsPlaying(true);
         setIsBuffering(false);
+        if (isBackgroundMode) {
+          backgroundPlaybackService.startBackgroundKeepAlive();
+          backgroundPlaybackService.requestWakeLock();
+        }
       }).catch((err) => {
         console.warn('Native HLS autoplay catch:', err);
         setIsBuffering(false);
       });
     } else if (Hls.isSupported()) {
-      // Hls.js for Chrome / Firefox / Android / Desktop
+      // Hls.js for other browsers
       const config = getOptimizedHlsConfig(qualityMode);
       const hls = new Hls(config);
       hlsRef.current = hls;
@@ -117,7 +163,13 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsBuffering(false);
         setErrorMessage(null);
-        video.play().then(() => setIsPlaying(true)).catch(() => {});
+        video.play().then(() => {
+          setIsPlaying(true);
+          if (isBackgroundMode) {
+            backgroundPlaybackService.startBackgroundKeepAlive();
+            backgroundPlaybackService.requestWakeLock();
+          }
+        }).catch(() => {});
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -143,7 +195,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       video.src = streamUrl;
       video.load();
     }
-  }, [channel, qualityMode, setupMediaSession, onChannelError]);
+  }, [channel, qualityMode, setupMediaSession, onChannelError, isBackgroundMode]);
 
   // Reload when channel or quality changes
   useEffect(() => {
@@ -156,7 +208,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     };
   }, [channel, qualityMode, loadStream]);
 
-  // AirPlay detection
+  // AirPlay detection & events
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -178,7 +230,12 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      video.play().then(() => setIsPlaying(true)).catch(() => {});
+      video.play().then(() => {
+        setIsPlaying(true);
+        if (isBackgroundMode) {
+          backgroundPlaybackService.startBackgroundKeepAlive();
+        }
+      }).catch(() => {});
     } else {
       video.pause();
       setIsPlaying(false);
@@ -222,6 +279,11 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
     video.play().catch(() => {});
+    
+    // Auto enable background keepalive so AirPlay doesn't get interrupted
+    backgroundPlaybackService.startBackgroundKeepAlive();
+    backgroundPlaybackService.requestWakeLock();
+
     if (typeof (video as any).webkitShowPlaybackTargetPicker === 'function') {
       (video as any).webkitShowPlaybackTargetPicker();
     } else if ('remote' in video && (video as any).remote && typeof (video as any).remote.prompt === 'function') {
@@ -237,7 +299,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       {/* VIDEO STAGE */}
       <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group select-none">
         
-        {/* Core Video Element */}
+        {/* Core Video Element with iOS AirPlay & Background Attributes */}
         <video
           ref={videoRef}
           playsInline
@@ -252,6 +314,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
             setIsBuffering(false);
             setIsPlaying(true);
             setErrorMessage(null);
+            setupMediaSession();
           }}
           onClick={togglePlay}
         />
@@ -262,6 +325,16 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
             <div className="flex items-center gap-2.5 bg-white/95 text-slate-900 border border-white/20 px-4 py-2 rounded-2xl shadow-xl text-xs font-semibold">
               <RotateCcw className="w-4 h-4 text-emerald-600 animate-spin" />
               <span>جلب البث المباشر الفوري...</span>
+            </div>
+          </div>
+        )}
+
+        {/* AirPlay Active Overlay Banner */}
+        {isAirPlayActive && (
+          <div className="absolute top-12 inset-x-4 z-20 flex justify-center pointer-events-none">
+            <div className="bg-emerald-600/95 backdrop-blur-md text-white text-xs font-bold px-4 py-2 rounded-2xl shadow-xl flex items-center gap-2 border border-emerald-400/40 animate-pulse pointer-events-auto">
+              <Cast className="w-4 h-4" />
+              <span>متصل بالتلفاز عبر AirPlay • مستمر بالخلفية بدون انقطاع</span>
             </div>
           </div>
         )}
@@ -291,7 +364,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
 
             {/* Quality badge */}
             <div className="px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-mono border border-white/10">
-              {qualityMode === 'low_data' ? '⚡ وضع السرعة والنت الضعيف' : 'سحب تلقائي سريع'}
+              {qualityMode === 'low_data' ? '⚡ وضع النت الضعيف' : 'سحب تلقائي فائق السرعة'}
             </div>
           </div>
 
@@ -300,7 +373,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
             {/* Aspect ratio */}
             <button
               onClick={() => setAspectFit(aspectFit === 'contain' ? 'cover' : 'contain')}
-              className="px-2 py-1 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white text-[10px] font-medium transition cursor-pointer"
+              className="px-2.5 py-1 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white text-[10px] font-medium transition cursor-pointer"
               title="تغيير أبعاد الشاشة"
             >
               {aspectFit === 'contain' ? 'توسيط' : 'ملء الشاشة'}
@@ -354,8 +427,12 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
             <button
               id="player-airplay-btn"
               onClick={triggerAirPlay}
-              className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/30 active:scale-95 transition cursor-pointer"
-              title="بث تلفزيوني AirPlay"
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer ${
+                isAirPlayActive
+                  ? 'bg-emerald-400 text-slate-950 shadow-emerald-400/40 ring-2 ring-white'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30'
+              }`}
+              title="بث مباشر إلى التلفاز الذكي (AirPlay)"
             >
               <Cast className="w-3.5 h-3.5 stroke-[2.5]" />
               <span className="hidden sm:inline">بث للتلفاز</span>
@@ -367,7 +444,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
               id="player-pip-btn"
               onClick={togglePiP}
               className="p-2 rounded-xl bg-white/15 hover:bg-white/25 transition cursor-pointer"
-              title="نافذة عائمة (Picture in Picture)"
+              title="نافذة عائمة لمشاهدة البث خارج التطبيق (Picture in Picture)"
             >
               <PictureInPicture2 className="w-4 h-4" />
             </button>
@@ -387,8 +464,8 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
 
       </div>
 
-      {/* CHANNEL DETAILS & QUALITY CONTROLS BAR */}
-      <div className="p-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      {/* CHANNEL DETAILS & BACKGROUND PLAYBACK STATUS BAR */}
+      <div className="p-4 bg-white border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         
         {/* Channel Info */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -431,8 +508,27 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
           </div>
         </div>
 
-        {/* Speed / Quality Mode Selector Pills */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+        {/* Feature Switches: Background Keep-Alive & Quality */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start md:justify-end">
+          
+          {/* Background Playback Toggle */}
+          <button
+            onClick={toggleBackgroundMode}
+            className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+              isBackgroundMode
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs'
+                : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+            }`}
+            title="إبقاء البث متصلاً بالتلفاز وشغالاً حتى عند قفل الشاشة أو الخروج من التطبيق"
+          >
+            <Smartphone className={`w-3.5 h-3.5 ${isBackgroundMode ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span>تشغيل بالخلفية وقفل الشاشة:</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${isBackgroundMode ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              {isBackgroundMode ? 'مفعّل ✓' : 'معطّل'}
+            </span>
+          </button>
+
+          {/* Speed / Quality Mode Selector Pills */}
           <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/80 text-xs">
             <button
               onClick={() => onChangeQualityMode('auto')}
@@ -443,7 +539,7 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
               }`}
             >
               <Sparkles className="w-3 h-3 text-emerald-600" />
-              <span>تلقائي سريع</span>
+              <span>تلقائي</span>
             </button>
 
             <button
@@ -456,9 +552,21 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
               title="سحب خفيف جداً يضمن تشغيل الفيديو حتى على أضعف شبكة إنترنت"
             >
               <Zap className="w-3 h-3" />
-              <span>النت الضعيف (0 تقطيع)</span>
+              <span>النت الضعيف</span>
             </button>
           </div>
+
+          {/* Open Guide */}
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer"
+              title="دليل تشغيل التلفاز والخلفية"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
+
         </div>
 
       </div>
@@ -466,3 +574,4 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     </div>
   );
 };
+

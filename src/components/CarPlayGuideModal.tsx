@@ -1,5 +1,19 @@
 import React from 'react';
-import { X, Car, Cast, Volume2, ShieldCheck, Smartphone, Radio, Play, CheckCircle2 } from 'lucide-react';
+import {
+  X,
+  Car,
+  Cast,
+  Volume2,
+  ShieldCheck,
+  Smartphone,
+  Radio,
+  Play,
+  CheckCircle2,
+  Lock,
+  PictureInPicture2,
+  Sparkles,
+  Layers
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface CarPlayGuideModalProps {
@@ -27,17 +41,17 @@ export const CarPlayGuideModal: React.FC<CarPlayGuideModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="w-full max-w-lg rounded-3xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-2xl text-right text-slate-800 relative flex flex-col max-h-[92vh] overflow-y-auto no-scrollbar"
+            className="w-full max-w-lg rounded-3xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-2xl text-right text-slate-800 relative flex flex-col max-h-[92vh] overflow-y-auto no-scrollbar space-y-3.5"
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <Car className="w-5 h-5" />
+                  <Cast className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">تشغيل في السيارة والتلفاز</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Apple CarPlay & AirPlay Stream</p>
+                  <h3 className="text-sm font-black text-slate-900">تشغيل التلفاز والخلفية بدون انقطاع</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">AirPlay • Background Playback • CarPlay</p>
                 </div>
               </div>
 
@@ -50,52 +64,62 @@ export const CarPlayGuideModal: React.FC<CarPlayGuideModalProps> = ({
             </div>
 
             {/* Content */}
-            <div className="py-4 space-y-3.5 text-xs text-slate-600 leading-relaxed">
+            <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
               
+              {/* Feature highlight banner */}
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-1">
                 <div className="flex items-center gap-2 font-bold text-emerald-900">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>تكامل تلقائي مع شاشة وأزرار سيارتك (MediaSession):</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>ميزة البث المستمر في الخلفية (Background Keep-Alive):</span>
                 </div>
                 <p className="text-[11px] text-emerald-800">
-                  تم ضبط المشغل لإرسال إشارة الصوت وشعار القناة واسمها تلقائياً إلى نظام CarPlay والبلوتوث في السيارة.
+                  تم تفعيل جسر تشغيل صوتي وتقني مخصص لأجهزة الآيفون (iOS) يمنع النظام من إيقاف البث أو فصل اتصال التلفاز عند قفل الشاشة أو فتح تطبيقات أخرى.
                 </p>
               </div>
 
-              {/* Step 1: CarPlay */}
+              {/* Step 1: Continuous TV AirPlay */}
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <Radio className="w-4 h-4 text-emerald-600" />
-                  <span>1. في السيارة (CarPlay / Bluetooth):</span>
+                  <Cast className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>1. البث على شاشة التلفاز الذكي (AirPlay):</span>
                 </div>
                 <p className="text-[11px] text-slate-600">
-                  • عند توصيل هاتفك بكابل CarPlay أو البلوتوث، يشتغل صوت القناة الحية فوراً عبر سماعات السيارة.
+                  • اضغط زر <strong className="text-emerald-700">«بث للتلفاز»</strong> في شريط المشغل، واختر شاشة التلفاز (Apple TV / Samsung / LG / Sony).
                   <br />
-                  • يمكنك التبديل بين القنوات أو إيقاف وتشغيل البث من شاشة السيارة أو أزرار المقود.
+                  • سيبقى البث مستمراً على شاشة التلفاز حتى لو قفلت شاشة الآيفون أو خرجت من المتصفح.
                 </p>
               </div>
 
-              {/* Step 2: AirPlay TV */}
+              {/* Step 2: Lock Screen & Control Center */}
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <Cast className="w-4 h-4 text-emerald-600" />
-                  <span>2. على التلفاز الذكي (AirPlay TV):</span>
+                  <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>2. التحكم من شاشة القفل ومركز التحكم (Lock Screen):</span>
                 </div>
                 <p className="text-[11px] text-slate-600">
-                  • اضغط زر <strong className="text-emerald-700">«بث للتلفاز»</strong> في مشغل الفيديو.
-                  <br />
-                  • اختر شاشة التلفاز الذكي (Apple TV / Samsung / LG) ليبدأ بث الفيديو والصوت عالي الدقة بدون أي تأخير.
+                  • عند قفل الهاتف، ستظهر بطاقة القناة مع شعارها وأزرار (التشغيل / الإيقاف / التنقل بين القنوات) مباشرة في شاشة القفل ومركز التحكم (Control Center).
                 </p>
               </div>
 
-              {/* Step 3: Low Data */}
+              {/* Step 3: Floating PiP Window */}
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <Volume2 className="w-4 h-4 text-emerald-600" />
-                  <span>3. وضع النت الضعيف أثناء التنقل:</span>
+                  <PictureInPicture2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>3. ميزة النافذة العائمة (Picture in Picture):</span>
                 </div>
                 <p className="text-[11px] text-slate-600">
-                  • إذا كنت تقود في مناطق ذات تغطية إنترنت ضعيفة، قم بتفعيل خيار <strong className="text-emerald-700">«النت الضعيف»</strong> أسفل المشغل لضمان استمرار البث دون أي تقطيع.
+                  • اضغط أيقونة النافذة العائمة لمشاهدة القناة في نافذة صغيرة تطفو فوق تطبيق الواتساب، التيك توك، أو متصفحات أخرى.
+                </p>
+              </div>
+
+              {/* Step 4: CarPlay In Vehicle */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <Car className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>4. شاشة وأزرار مقود السيارة (Apple CarPlay):</span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  • يندمج التطبيق تلقائياً مع نظام CarPlay لنقل الصوت عالي النقاء وسماع نشرات الأخبار والمباريات مع التبديل من المقود.
                 </p>
               </div>
 
@@ -117,3 +141,4 @@ export const CarPlayGuideModal: React.FC<CarPlayGuideModalProps> = ({
     </AnimatePresence>
   );
 };
+

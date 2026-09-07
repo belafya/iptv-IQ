@@ -67,7 +67,7 @@ export function syncCarPlayMediaSession(
   }
 }
 
-// Local Storage helpers
+// Local Storage helpers with Quota Exceeded and crash protection
 export function loadSavedFavorites(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.FAVORITES);
@@ -91,7 +91,13 @@ export function loadSavedChannels(defaultChannels: IPTVChannel[]): IPTVChannel[]
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Validate items
+        const validChannels = parsed.filter(
+          (c) => c && typeof c === 'object' && c.name && c.url
+        );
+        if (validChannels.length > 0) {
+          return validChannels;
+        }
       }
     }
   } catch (err) {
@@ -101,9 +107,40 @@ export function loadSavedChannels(defaultChannels: IPTVChannel[]): IPTVChannel[]
 }
 
 export function saveChannelsLocally(channels: IPTVChannel[]) {
+  if (!Array.isArray(channels) || channels.length === 0) return;
+
   try {
-    localStorage.setItem(STORAGE_KEYS.CHANNELS, JSON.stringify(channels));
-  } catch (err) {
-    console.warn('Failed saving channels to cache', err);
+    // Sanitize and trim channels to avoid storage overflow
+    const sanitized = channels.map((c) => ({
+      id: c.id,
+      name: c.name,
+      logo: c.logo || undefined,
+      group: c.group || 'عام',
+      url: c.url,
+      lowResUrl: c.lowResUrl || undefined,
+      country: c.country || undefined,
+      isVerified: c.isVerified ?? true,
+      status: c.status || 'working',
+    }));
+
+    // Cap to safe maximum for LocalStorage (e.g., 2000 channels)
+    const capped = sanitized.slice(0, 2000);
+    localStorage.setItem(STORAGE_KEYS.CHANNELS, JSON.stringify(capped));
+  } catch (err: any) {
+    console.warn('LocalStorage QuotaExceeded or write error, trying smaller batch:', err);
+    try {
+      // Fallback: store first 500 channels
+      const minimal = channels.slice(0, 500).map((c) => ({
+        id: c.id,
+        name: c.name,
+        logo: c.logo,
+        group: c.group,
+        url: c.url,
+      }));
+      localStorage.setItem(STORAGE_KEYS.CHANNELS, JSON.stringify(minimal));
+    } catch (innerErr) {
+      console.warn('Could not cache to LocalStorage', innerErr);
+    }
   }
 }
+
