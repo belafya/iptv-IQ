@@ -5,11 +5,9 @@ import { ChannelList } from './components/ChannelList';
 import { AddSourceModal } from './components/AddSourceModal';
 import { CarPlayGuideModal } from './components/CarPlayGuideModal';
 import { IOSInstallGuideModal } from './components/IOSInstallGuideModal';
-import { TVAirPlayFixModal } from './components/TVAirPlayFixModal';
-import { MediaVaultModal } from './components/MediaVaultModal';
 import { OfflineBanner } from './components/OfflineBanner';
 import { CURATED_IPTV_CHANNELS } from './data/curatedChannels';
-import { IPTVChannel, QualityMode, LocalMediaItem } from './types';
+import { IPTVChannel, QualityMode } from './types';
 import {
   loadSavedChannels,
   loadSavedFavorites,
@@ -17,7 +15,7 @@ import {
   saveChannelsLocally,
   STORAGE_KEYS,
 } from './utils/streamOptimizer';
-import { Tv, Sparkles, ShieldCheck, Zap, Car, Cast, Wifi, Radio, Folder } from 'lucide-react';
+import { Tv, Sparkles, ShieldCheck, Zap, Car, Cast, Wifi, Radio } from 'lucide-react';
 
 export default function App() {
   // Load initial cached channels & favorites
@@ -45,9 +43,6 @@ export default function App() {
   const [isAddSourceOpen, setIsAddSourceOpen] = useState<boolean>(false);
   const [isCarPlayGuideOpen, setIsCarPlayGuideOpen] = useState<boolean>(false);
   const [isIOSGuideOpen, setIsIOSGuideOpen] = useState<boolean>(false);
-  const [isTVAirPlayFixOpen, setIsTVAirPlayFixOpen] = useState<boolean>(false);
-  const [isMediaVaultOpen, setIsMediaVaultOpen] = useState<boolean>(false);
-  const [activeLocalMedia, setActiveLocalMedia] = useState<LocalMediaItem | null>(null);
 
   // Monitor network status
   useEffect(() => {
@@ -149,7 +144,6 @@ export default function App() {
         onOpenAddSource={() => setIsAddSourceOpen(true)}
         onOpenCarPlayGuide={() => setIsCarPlayGuideOpen(true)}
         onOpenIOSGuide={() => setIsIOSGuideOpen(true)}
-        onOpenMediaVault={() => setIsMediaVaultOpen(true)}
         workingCount={workingCount}
         totalCount={channels.length}
       />
@@ -181,10 +175,6 @@ export default function App() {
             onChangeQualityMode={handleChangeQualityMode}
             isOnline={isOnline}
             onOpenGuide={() => setIsCarPlayGuideOpen(true)}
-            onOpenTVFix={() => setIsTVAirPlayFixOpen(true)}
-            onOpenMediaVault={() => setIsMediaVaultOpen(true)}
-            activeLocalMedia={activeLocalMedia}
-            onClearLocalMedia={() => setActiveLocalMedia(null)}
           />
         </section>
 
@@ -194,10 +184,7 @@ export default function App() {
           <ChannelList
             channels={channels}
             currentChannelId={safeCurrentChannel.id}
-            onSelectChannel={(ch) => {
-              setActiveLocalMedia(null);
-              handleSelectChannel(ch);
-            }}
+            onSelectChannel={handleSelectChannel}
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
             onlyWorking={onlyWorking}
@@ -217,22 +204,6 @@ export default function App() {
             <span>بث القنوات العراقية والعربية فائق السرعة</span>
           </div>
           <div className="flex items-center gap-3 text-[11px] text-slate-500">
-            <button
-              onClick={() => setIsMediaVaultOpen(true)}
-              className="text-blue-700 hover:text-blue-800 font-bold transition cursor-pointer flex items-center gap-1"
-            >
-              <Folder className="w-3.5 h-3.5" />
-              <span>مجلد ملفات IPTV IQ</span>
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => setIsTVAirPlayFixOpen(true)}
-              className="text-amber-700 hover:text-amber-800 font-semibold transition cursor-pointer flex items-center gap-1"
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>حل مشكلة التلفاز</span>
-            </button>
-            <span>•</span>
             <button
               onClick={() => setIsCarPlayGuideOpen(true)}
               className="hover:text-emerald-700 transition cursor-pointer"
@@ -277,25 +248,6 @@ export default function App() {
       <IOSInstallGuideModal
         isOpen={isIOSGuideOpen}
         onClose={() => setIsIOSGuideOpen(false)}
-      />
-
-      <TVAirPlayFixModal
-        isOpen={isTVAirPlayFixOpen}
-        onClose={() => setIsTVAirPlayFixOpen(false)}
-        onReconnectStream={() => {
-          // Force reload active stream
-          const ch = safeCurrentChannel;
-          handleSelectChannel({ ...ch });
-        }}
-      />
-
-      <MediaVaultModal
-        isOpen={isMediaVaultOpen}
-        onClose={() => setIsMediaVaultOpen(false)}
-        onPlayLocalVideo={(mediaItem) => {
-          setActiveLocalMedia(mediaItem);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
       />
 
     </div>
