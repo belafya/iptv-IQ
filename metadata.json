@@ -1,0 +1,8 @@
+{
+  "name": "IPTV IQ",
+  "description": "تطبيق بث القنوات التلفزيونية المباشرة والقنوات العراقية والعربية فائقة السرعة مع دعم AirPlay و CarPlay والتشغيل في النت الضعيف والتخزين المحلي",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
