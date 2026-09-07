@@ -99,19 +99,17 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
         localStorage.setItem('iptv_iq_bg_mode', String(next));
       } catch {}
       if (next) {
-        backgroundPlaybackService.startBackgroundKeepAlive();
         backgroundPlaybackService.requestWakeLock();
       } else {
-        backgroundPlaybackService.stopBackgroundKeepAlive();
+        backgroundPlaybackService.releaseWakeLock();
       }
       return next;
     });
   };
 
-  // Keep alive when background mode is active
+  // Keep wake lock alive when background mode is active
   useEffect(() => {
     if (isBackgroundMode && isPlaying) {
-      backgroundPlaybackService.startBackgroundKeepAlive();
       backgroundPlaybackService.requestWakeLock();
     }
     return () => {
@@ -144,7 +142,6 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
         setIsPlaying(true);
         setIsBuffering(false);
         if (isBackgroundMode) {
-          backgroundPlaybackService.startBackgroundKeepAlive();
           backgroundPlaybackService.requestWakeLock();
         }
       }).catch((err) => {
@@ -166,7 +163,6 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
         video.play().then(() => {
           setIsPlaying(true);
           if (isBackgroundMode) {
-            backgroundPlaybackService.startBackgroundKeepAlive();
             backgroundPlaybackService.requestWakeLock();
           }
         }).catch(() => {});
@@ -218,10 +214,19 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       setIsAirPlayActive(!!isWireless);
     };
 
+    const handleAvailabilityChanged = (event: any) => {
+      if (event && event.availability) {
+        setIsAirPlayActive(event.availability === 'available' && (video as any).webkitCurrentPlaybackTargetIsWireless);
+      }
+    };
+
     video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', handleAirPlayChanged);
+    video.addEventListener('webkitplaybacktargetavailabilitychanged', handleAvailabilityChanged);
+
     return () => {
       if (video) {
         video.removeEventListener('webkitcurrentplaybacktargetiswirelesschanged', handleAirPlayChanged);
+        video.removeEventListener('webkitplaybacktargetavailabilitychanged', handleAvailabilityChanged);
       }
     };
   }, []);
@@ -232,9 +237,6 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     if (video.paused) {
       video.play().then(() => {
         setIsPlaying(true);
-        if (isBackgroundMode) {
-          backgroundPlaybackService.startBackgroundKeepAlive();
-        }
       }).catch(() => {});
     } else {
       video.pause();
@@ -278,12 +280,8 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
   const triggerAirPlay = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.play().catch(() => {});
-    
-    // Auto enable background keepalive so AirPlay doesn't get interrupted
-    backgroundPlaybackService.startBackgroundKeepAlive();
-    backgroundPlaybackService.requestWakeLock();
 
+    // Direct synchronous call to iOS AirPlay Picker
     if (typeof (video as any).webkitShowPlaybackTargetPicker === 'function') {
       (video as any).webkitShowPlaybackTargetPicker();
     } else if ('remote' in video && (video as any).remote && typeof (video as any).remote.prompt === 'function') {
@@ -291,6 +289,9 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
     } else {
       toggleFullscreen();
     }
+
+    backgroundPlaybackService.requestWakeLock();
+    video.play().catch(() => {});
   };
 
   return (
@@ -299,12 +300,14 @@ export const LivePlayer: React.FC<LivePlayerProps> = ({
       {/* VIDEO STAGE */}
       <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden group select-none">
         
-        {/* Core Video Element with iOS AirPlay & Background Attributes */}
+        {/* Core Video Element with iOS AirPlay & Video Streaming Attributes */}
         <video
           ref={videoRef}
           playsInline
           webkit-playsinline="true"
           x-webkit-airplay="allow"
+          airplay="allow"
+          controlsList="nodownload"
           preload="auto"
           autoPlay
           muted={isMuted}

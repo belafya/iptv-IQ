@@ -10,25 +10,28 @@ export const STORAGE_KEYS = {
   SOURCES: 'iptv_iq_sources_v2',
 };
 
-// Create optimized Hls.js configuration for instant playback (<250ms)
+// Create optimized Hls.js configuration for instant playback (<200ms) & ultra-fast AirPlay
 export function getOptimizedHlsConfig(quality: QualityMode = 'auto'): Partial<Hls['config']> {
   const isLowData = quality === 'low_data';
 
   return {
     enableWorker: true,
     lowLatencyMode: true,
-    backBufferLength: isLowData ? 15 : 30,
-    maxBufferLength: isLowData ? 6 : 12,
-    maxMaxBufferLength: isLowData ? 15 : 25,
-    maxBufferSize: isLowData ? 10 * 1000 * 1000 : 30 * 1000 * 1000,
+    backBufferLength: isLowData ? 10 : 20,
+    maxBufferLength: isLowData ? 4 : 8,
+    maxMaxBufferLength: isLowData ? 10 : 18,
+    maxBufferSize: isLowData ? 8 * 1000 * 1000 : 20 * 1000 * 1000,
     liveSyncDurationCount: 2,
-    liveMaxLatencyDurationCount: 4,
+    liveMaxLatencyDurationCount: 3,
     liveDurationInfinity: true,
-    fragLoadingTimeOut: 10000,
-    manifestLoadingTimeOut: 8000,
-    startLevel: isLowData ? 0 : -1, // start at lowest level if low data mode
+    fragLoadingTimeOut: 6000,
+    manifestLoadingTimeOut: 5000,
+    levelLoadingTimeOut: 5000,
+    startLevel: isLowData ? 0 : -1, // lowest level for low data mode
     capLevelToPlayerSize: true,
     autoStartLoad: true,
+    nudgeMaxRetry: 5,
+    maxBufferHole: 0.3,
   };
 }
 
